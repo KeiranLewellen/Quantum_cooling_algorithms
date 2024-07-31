@@ -200,21 +200,6 @@ def measure_bath(sys, N_B, N_S):
     return measurement, sys_measured
 
 
-def measure_bath_min(sys, N_B, N_S):
-    prob_list = prob_list_bath(sys, N_B, N_S)
-    print(prob_list)
-    measure_num = 0
-    measurement = ket(measure_num, N_B)
-    sys_measured = sys[measure_num*(2 ** N_S): (measure_num + 1)*(2 ** N_S)]
-    sys_measured = np.concatenate((sys_measured, np.array([np.zeros(((2**N_B)-1)*(2 ** N_S))]).T), axis=0)
-    sys_measured = (prob_list[measure_num] ** (-0.5))*sys_measured
-    # print(sys[-8:-1])
-    # print(sys[0:8])
-    # print(sys_measured[0:8])
-    print(measurement)
-    return measurement, sys_measured
-
-
 def evolve_ising_ground_state(sys, dt, T, N_B, N_S, J, h_x, h_z, g, g_max, B, B_i, B_f, steps):
     sys_step_list = [sys]
     measurement_list = []
@@ -234,31 +219,6 @@ def evolve_ising_ground_state(sys, dt, T, N_B, N_S, J, h_x, h_z, g, g_max, B, B_
         energy_tot.append(total_energy_list)
         sys_evolved = sys_list[-1]
         measurement, sys_step = measure_bath(sys_evolved, N_B, N_S)
-        sys_step_list.append(sys_step)
-        print(energy([sys_step], H)[0])
-        measurement_list.append(measurement)
-    return sys_step_list, measurement_list, energy_sys, energy_bath, energy_int, energy_tot
-
-
-def evolve_ising_ground_state_min(sys, dt, T, N_B, N_S, J, h_x, h_z, g, g_max, B, B_i, B_f, steps):
-    sys_step_list = [sys]
-    measurement_list = []
-    sys_step = sys
-    energy_sys = []
-    energy_bath = []
-    energy_tot = []
-    energy_int = []
-    H = Hamiltonian(N_B, N_S, J, h_x, h_z)
-    print(energy([sys], H)[0])
-    for i in range(steps):
-        print("Step " + str(i))
-        sys_list, bath_energy_list, sys_energy_list, int_energy_list, total_energy_list = evolve_ising_coupled(sys_step, dt, T, N_B, N_S, J, h_x, h_z, g, g_max, B, B_i, B_f)
-        energy_sys.append(sys_energy_list)
-        energy_bath.append(bath_energy_list)
-        energy_int.append(int_energy_list)
-        energy_tot.append(total_energy_list)
-        sys_evolved = sys_list[-1]
-        measurement, sys_step = measure_bath_min(sys_evolved, N_B, N_S)
         sys_step_list.append(sys_step)
         print(energy([sys_step], H)[0])
         measurement_list.append(measurement)
@@ -434,14 +394,17 @@ def ground_state_energy(H):
 
 # Parameter definitions
 
+# Ising model paramters
 J = 1
 h_x = 1
 h_z = 0.2
+
+# Magnetic field and coupling parameters
 B_i = 5
 B_f = 0.7
 g_max = 0.5
 
-
+# System qubit number, bath qubit number 
 N_S = 5
 N_B = 2
 run = 5
