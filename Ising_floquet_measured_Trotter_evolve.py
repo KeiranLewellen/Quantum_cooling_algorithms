@@ -131,9 +131,6 @@ def g(t, T, g_max):
     if t > 3*T/4:
         return g_max*(1 - (t-3*T/4)/(T/4))
 
-def cos_sx(t, omega):
-    return np.cos(omega*t)
-
 
 def evolve_ising_coupled(sys, dt, T, N_B, N_S, J, h_x):
     m = int(T/dt)
@@ -158,23 +155,28 @@ def measure_qubit(sys, k, N_B, N_S):
         print("ERROR must have N_B = 0")
     block_num = 2 ** (k + 1)
     block_len = 2 ** (N_S - (k + 1))
-    measured_zero = np.zeros(2**N_S)
-    measured_one = np.zeros(2**N_S)
-    for i in range(len(2**N_S)):
+    measured_zero = np.zeros(2**N_S, dtype=np.complex64)
+    measured_one = np.zeros(2**N_S, dtype=np.complex64)
+    state_list = np.zeros(2**N_S)
+    for i in range(2**N_S):
         if int(math.floor(i/block_len)) % 2 == 0:
-            measured_zero[i] = sys[i]
+            measured_zero[i] = sys[i][0]
         if int(math.floor(i/block_len)) % 2 == 1:
-            measured_one[i] = sys[i]
+            measured_one[i] = sys[i][0]
+            state_list[i] = 1
+    # print("k:", k)
+    # print("state_list:", state_list)
     p_zero = 0
     p_one = 0
     for i in range(2 ** N_S):
-        p_zero += norm(sys[i]) ** 2
-        p_one += norm(sys[i]) ** 2
+        p_zero += norm(measured_zero[i]) ** 2
+        p_one += norm(measured_one[i]) ** 2
+
     print("total probability: ", p_zero + p_one)
     if not p_zero == 0:
-        measured_zero = measured_zero/p_zero
+        measured_zero = measured_zero/np.sqrt(p_zero)
     if not p_one == 0:
-        measured_one = measured_one/p_one
+        measured_one = measured_one/np.sqrt(p_one)
     return p_zero, measured_zero, measured_one
 
 
@@ -186,10 +188,10 @@ def measure_random(sys, p, N_B, N_S):
             p_zero, measured_zero, measured_one = measure_qubit(sys, k, N_B, N_S)
             measure_outcome = choice(2, p=[p_zero, 1 - p_zero])
             if measure_outcome == 0:
-                sys = measured_zero
+                sys = np.reshape(measured_zero, (len(measured_zero), 1))
                 measurement_arr[k] = 0
             if measure_outcome == 0:
-                sys = measured_one
+                sys = np.reshape(measured_one, (len(measured_one), 1))
                 measurement_arr[k] = 1
         if measure_or_not == 1:
             measurement_arr[k] = -1
@@ -207,12 +209,11 @@ def evolve_ising_ground_state(sys, dt, T, N_B, N_S, J, h_x, p, steps):
         sys_step, measurement_arr = measure_random(sys_evolved, p, N_B, N_S)
         sys_step_list.append(sys_step)
         measurement_list.append(measurement_arr)
+    measurement_list = np.stack(measurement_list)
     return sys_step_list, measurement_list
 
 
-
 # Makes plot of the system's energy
-
 
 def remove_dots(string):
     string_out = ""
@@ -240,6 +241,9 @@ def ground_state_energy(H):
 
 # Parameter definitions
 
+# H = -J/2 sum s_x s_x - h_x/2 cos(omega t) sum s_z
+# we measure each qubit in s_z basis with probability p
+
 J = 1   # coefficient of s_x*s_x
 h_x = 1    # coefficient of s_z
 
@@ -251,7 +255,7 @@ dt = 0.06   # trotter step time
 m = T/dt    # number of trotter steps per floquet period
 steps = 50   # number of floquet periods evolved for
 
-p = 0.1  # probability of measuring each qubit
+p = 0.5  # probability of measuring each qubit
 
 
 N_B = 0  # This is always zero and we should clean it up to just remove it
@@ -260,7 +264,6 @@ N_B = 0  # This is always zero and we should clean it up to just remove it
 
 sys = np.zeros(2 ** (N_B + N_S))
 sys_start_num = 1
-sys_start = ket(sys_start_num, N_S)
 sys[sys_start_num] = 1
 sys = np.array([sys]).T
 
@@ -277,14 +280,17 @@ sys_step_list, measurement_list = evolve_ising_ground_state(sys, dt, T, N_B, N_S
 print("_________________")
 
 
+# sys_step_list is a list of the system value stored as a list of column vectors
+# measurement list is an array where the rows are the measurements (-1 means no measurement occurred)
+
 
 '''
 with open("Wave_functions/Wave_function_Ising_model,NS_" + str(N_S) + ",NB_" + str(N_B) + ",T_" + remove_dots(str(T))
           + ",sys_start_" + str(sys_start_num) + ",run_" + str(run) + '.npy', 'wb') as f:
     np.savez(f, *sys_step_list)
 '''
-print(sys_start)
-print(measurement_list)
+print("measurement outcomes: ", measurement_list)
+print("final state:", sys_step_list[-1])
 
 '''
 plot(energy_list, "Demagnetization of Ising model: N_S = " + str(N_S) + ", N_B = " + str(N_B) + ", T = " + str(T),
